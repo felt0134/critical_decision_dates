@@ -413,3 +413,46 @@ get_period_by_year <- function(p,ecoregion){
   
 }
 #-------------------------------------------------------------------------------
+# function to help with converting each GPP raster into a dataframe/matrix -----
+
+format_gpp_df <- function(x){
+  
+  #convert to raster
+  raster_file <- raster(x)
+  
+  #extract year from the name of the raster to later add to dataframe
+  year_val <- substr(names(raster_file), 5, 8)
+  
+  #convert to dataframe and add year and period columns
+  df <- data.frame(rasterToPoints(raster_file))
+  df$year <- year_val
+  df$period <- gsub(paste0("GPP_",year_val,'_'),'', names(raster_file))
+  colnames(df) <- c('x','y','gpp','year','period')
+  
+  #return formatted dataframe
+  return(df)
+  
+  
+}
+
+
+#-------------------------------------------------------------------------------
+# function to help with converting each PPT raster into a dataframe/matrix ----
+
+format_ppt_df <- function(x){
+  
+  #convert to raster
+  raster_file <- raster(x)
+  
+  #extract year from the name of the raster
+  year_val <- substr(names(raster_file), 8, 11)
+  
+  #convert to dataframe and add year and period columns
+  df <- data.frame(rasterToPoints(raster_file))
+  df$year <- year_val
+  df$period <- gsub(paste0("Precip_",year_val,'_'),'', names(raster_file))
+  colnames(df) <- c('x','y','ppt','year','period')
+  return(df)
+  
+  
+}
