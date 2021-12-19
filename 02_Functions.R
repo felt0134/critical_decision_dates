@@ -29,6 +29,7 @@ get_16_day_sums_gpp <- function(x){
 #-------------------------------------------------------------------------------
 # import daymet precipitation data -----
 
+#old versions
 get_rainfall_period_2 <- function(year_start,year_end){
   
   summed_precip_list <- list()
@@ -98,8 +99,6 @@ get_rainfall_period_2 <- function(year_start,year_end){
   
   
 }
-
-
 get_rainfall_period <- function(period_id,year_start,year_end){
   
   summed_precip_list <- list()
@@ -177,11 +176,63 @@ get_rainfall_period <- function(period_id,year_start,year_end){
   
 }
 
+#use this one for full import
+get_daymet <- function(i){
+  
+  temp_lat <- sgs.1000[i, ] %>% pull(y)
+  temp_lon <- sgs.1000[i, ] %>% pull(x)
+  
+  
+  test <- download_daymet(
+    lat = temp_lat,
+    lon = temp_lon,
+    start = year_value,
+    end = year_value
+  ) %>% 
+    #--- just get the data part ---#
+    .$data #%>% 
+  # #--- convert to tibble (not strictly necessary) ---#
+  # as_tibble() %>% 
+  # #--- assign site_id so you know which record is for which site_id ---#
+  # mutate(site_id = temp_site) %>% 
+  # #--- get date from day of the year ---#
+  # mutate(date = as.Date(paste(year, yday, sep = "-"), "%Y-%j"))
+  
+  test<- test %>%
+    dplyr::filter(yday > 57) %>%
+    dplyr::filter(yday < 297) 
+  
+  
+  # summary(test)
+  # head(test)
+  
+  #subset to precip
+  test<-test[c(1,2,4)]
+  
+  #get 16-day sums of precip for each year for the given pixel
+  #year_test <- unique(test$year)
+  
+  summed_precip <- get_16_day_sums(test)
+  
+  #add period ID
+  summed_precip$period <- rownames(summed_precip)
+  summed_precip$period <- as.numeric(summed_precip$period) + 1
+  
+  #add in year and coordinate columns
+  summed_precip$year <- year_value
+  summed_precip$x<-temp_lon
+  summed_precip$y<-temp_lat
+  
+  return(summed_precip)
+  
+}
+
 
 
 #-------------------------------------------------------------------------------
 # import MODIS GPP data ------
 
+#old versions
 get_modis_gpp_period <- function(period_id,start_val,end_val){
   
   for(i in 1:nrow(sgs.1000)){
@@ -345,8 +396,64 @@ get_modis_gpp_period_2 <- function(period_id,start_val,end_val){
   
 }
 
+#use this one for full import
+get_modis_gpp_period_3 <- function(i){
+  
+  
+  temp_lat <- sgs.1000[i, ] %>% pull(y)
+  temp_lon <- sgs.1000[i, ] %>% pull(x)
+  
+  #get GPP data
+  site_gpp <- mt_subset(product = "MYD17A2H",
+                        lat = temp_lat,
+                        lon =  temp_lon,
+                        band = 'Gpp_500m',
+                        start = start_date,
+                        end = end_date,
+                        km_lr = 5,
+                        km_ab = 5,
+                        site_name = Ecoregion,
+                        internal = TRUE,
+                        progress = TRUE)
+  
+  #filter out bad values, get day of year, take median value for coordinate, and rescale GPP units to g/m^2
+  site_gpp_2  <- site_gpp  %>%
+    #filter(value <= X) %>% if there is a threshold value to filter by
+    group_by(calendar_date) %>% 
+    summarize(doy = as.numeric(format(as.Date(calendar_date)[1],"%j")),
+              gpp_mean = median(value * as.double(scale))) %>% 
+    filter(doy > 60) %>%
+    filter(doy < 300)
+  
+  #get gpp in grams
+  site_gpp_2$gpp_mean <- site_gpp_2$gpp_mean*1000
+  
+  #get year column
+  site_gpp_2$year <- substr(site_gpp_2$calendar_date, 1, 4)
+  
+  #filter out years with incomplete data
+  site_length = aggregate(doy~year,length,data=site_gpp_2)
+  colnames(site_length) = c('year','length')
+  site_gpp_2 = merge(site_gpp_2,site_length,by='year')
+  site_gpp_2 = site_gpp_2 %>%
+    dplyr::filter(length > 29)
+  
+  site_gpp_3 <- get_16_day_sums_gpp(site_gpp_2)
+  site_gpp_3$period <- as.numeric(rownames(site_gpp_3))
+  site_gpp_3$period = (site_gpp_3$period +1)
+  
+  site_gpp_3$x <- temp_lat
+  site_gpp_3$y <- temp_lon
+  site_gpp_3 <- site_gpp_3[c(3,4,1,2)]
+  
+  
+  
+  return(site_gpp_3) 
+  
+}
+
 #-------------------------------------------------------------------------------
-# load in precipitation (and potentially production) data for all years for a period -----
+# load in precipitation (and potentially production) data for all years for a period (MAYBE DELETE) -----
 
 get_period_by_year <- function(p,ecoregion){
   
@@ -456,3 +563,144 @@ format_ppt_df <- function(x){
   
   
 }
+#-------------------------------------------------------------------------------
+# calculate day of 90% growth for all years ------
+
+
+get_90_gpp <- function(i){
+  
+  
+  #subset to a given pixel
+  growth_id <- gpp_df %>%
+    dplyr::filter(id_value==i)
+  
+  x <- unique(growth_id %>% pull(x))
+  y <- unique(growth_id %>% pull(y))
+  
+  #plot(gpp~doy,growth_id)
+  
+  growth_id <- aggregate(gpp~doy,mean,data=growth_id)
+  
+  #plot(gpp~doy,growth_id_2)
+  
+  #head(growth_id_2)
+  
+  #for that pixel, get cumulative GPP throughout the year
+  growth_id_cmulative <- data.frame(growth_id, gpp_2=cumsum(growth_id$gpp))
+  growth_id_cmulative$gpp_3 <- 100*(growth_id_cmulative$gpp_2/max(growth_id_cmulative$gpp_2))
+  
+  rm(growth_id)
+  
+  #plot(gpp_3~doy,growth_id_cmulative)
+  
+  #create spline model of growth curve
+  gpp.doy.spl <- with(growth_id_cmulative, smooth.spline(doy, gpp_3))
+  #lines(gpp.doy.spl, col = "blue")
+  
+  rm(growth_id_cmulative)
+  
+  #run model through a sequence of days
+  doy <- data.frame(seq(from=65,to=297,by=1))
+  gpp_predicted <- data.frame(predict(gpp.doy.spl,doy))
+  colnames(gpp_predicted) <- c('day','gpp_perc')
+  
+  #plot(gpp_perc~day,data=gpp_predicted)
+  
+  #get day of year where roughly 90% of cumulative growth has occurred and turn into dataframe
+  gpp_predicted_90 <- gpp_predicted %>%
+    dplyr::filter(gpp_perc < 90.1)
+  
+  rm(gpp_predicted)
+  
+  doy_90 <- max(gpp_predicted_90$day) #this is a rough approximation 
+  
+  doy_90_df <- data.frame(doy_90)
+  colnames(doy_90_df) <- c('doy_90')
+  doy_90_df$x <- x
+  doy_90_df$y <- y
+  
+  doy_90_df <- doy_90_df[c(2,3,1)]
+  
+  return(doy_90_df)
+  
+  
+  
+}
+
+#-------------------------------------------------------------------------------
+# calculate day of 90% of growth for drought years ------
+
+
+get_90_gpp_drought <- function(i){
+  
+  #gpp_sub <- subset(gpp_df,id_value==100)
+  #ppt_sub <- subset(ppt_df,id_value==100)
+  
+  #ppt_id<- merge(gpp_sub,ppt_df,by=c('x','y','year','period'))
+  
+  ppt_id <- subset(ppt_gpp,id_value==i)
+  
+  ppt_id <- aggregate(ppt~x+y+id_value+year,sum,data=ppt_id)
+  
+  #ppt_id <- subset(gpp_ppt_annual,id_value==i)
+  
+  x <- unique(ppt_id %>% pull(x))
+  y <- unique(ppt_id %>% pull(y))
+  
+  #identify the quantile of interest
+  quantile_25 <- quantile(ppt_id$ppt,probs=0.25)
+  
+  #subset to years below this value
+  ppt_id  <- ppt_id %>%
+    filter(ppt < quantile_25)
+  
+  ppt_id  <- merge(ppt_id,gpp_df,by=c('x','y','id_value','year'))
+  
+  ppt_id  <- aggregate(gpp~doy,mean,data=ppt_id)
+  
+  #plot(gpp~doy,growth_id_2)
+  
+  #head(growth_id_2)
+  
+  #for that pixel, get cumulative GPP throughout the year
+  ppt_id <- data.frame(ppt_id, gpp_2=cumsum(ppt_id$gpp))
+  ppt_id$gpp_3 <- 100*(ppt_id$gpp_2/max(ppt_id$gpp_2))
+  
+  #reduce data size by selecting specific columns
+  ppt_id <- ppt_id %>%
+    select(c('doy','gpp_3'))
+  
+  #create spline model of growth curve
+  gpp.doy.drought.spl <- with(ppt_id, smooth.spline(doy, gpp_3))
+  #lines(gpp.doy.spl, col = "blue")
+  
+  #run model through a sequence of days
+  doy <- data.frame(seq(from=65,to=297,by=1))
+  gpp_drought_predicted <- data.frame(predict(gpp.doy.drought.spl,doy))
+  colnames(gpp_drought_predicted) <- c('day','gpp_perc')
+  
+  #plot(gpp_perc~day,gpp_drought_predicted)
+  
+  rm(ppt_id,doy,gpp.doy.drought.spl)
+  
+  #get day of year where roughly 90% of cumulative growth has occurred and turn into dataframe
+  gpp_drought_predicted_90 <- gpp_drought_predicted %>%
+    dplyr::filter(gpp_perc < 90.1)
+  
+  doy_90 <- max(gpp_drought_predicted_90$day) #this is a rough approximation 
+  
+  rm(gpp_drought_predicted_90,gpp_drought_predicted)
+  
+  doy_90_df <- data.frame(doy_90)
+  colnames(doy_90_df) <- c('doy_90_drought')
+  doy_90_df$x <- x
+  doy_90_df$y <- y
+  
+  doy_90_df <- doy_90_df[c(2,3,1)] #re-order to x,y,z
+  
+  return(doy_90_df)
+  
+
+}
+
+

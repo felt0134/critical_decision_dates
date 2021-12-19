@@ -79,7 +79,7 @@ mean_ppt_gpp_2$gpp_dev <- mean_ppt_gpp_2$gpp_mean - mean_ppt_gpp_2$gpp
 #head(mean_ppt_gpp_2)
 rm(mean_ppt_gpp,ppt_gpp)
 
-# for later use: get average total growing seaon PPT for each pixel
+# for later use: get average total growing season PPT for each pixel
 annual_ppt <- aggregate(ppt~x+y+year,sum,data=mean_ppt_gpp_2)
 annual_ppt <- aggregate(ppt~x+y,mean,data=annual_ppt)
 #plot(rasterFromXYZ(annual_ppt))
@@ -247,7 +247,7 @@ AIC(annual_ppt_max_sens_lm,max_sens_lat_lm)
 
 #try to look at growth curves
 
-#mke unique id for each site
+#make unique id for each site
 gpp_df_mean <- aggregate(gpp~x+y,mean,data=gpp_df)
 gpp_df_mean$id <- seq.int(nrow(gpp_df_mean))
 head(gpp_df_mean)

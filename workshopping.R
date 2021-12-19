@@ -303,3 +303,46 @@ gpp_list_df <- do.call('rbind',gpp_list)
 ppt_list_df <- do.call('rbind',ppt_list)
 
   
+#getting day of 90% productivity across all years ----
+
+
+
+#get data and track progress
+library(future.apply)
+library(progressr)
+
+#get typical day by which 90% of growth has occurred
+with_progress({
+  p <- progressor(along = id_list)
+  gpp_90_list <- future_lapply(id_list, function(i) {
+    Sys.sleep(0.1)
+    p(sprintf("i=%g", i))
+    get_90_gpp(i)
+  })
+})
+
+gpp_90_df <- do.call('rbind',gpp_90_list)
+gpp_90_df$ecoregion <- Ecoregion
+
+#get typical day by which 90% of growth has occurred during years of drought
+with_progress({
+  p <- progressor(along = id_list)
+  gpp_90_drought_list <- future_lapply(id_list, function(i) {
+    Sys.sleep(0.1)
+    p(sprintf("i=%g", i))
+    get_90_gpp_drought(i)
+  })
+})
+
+gpp_90_drought_df <- do.call('rbind',gpp_90_drought_list)
+gpp_90_drought_df$ecoregion <- Ecoregion
+
+
+#now we have both, so combine them into one
+gpp_90_drought_df_2 <- merge(gpp_90_df,gpp_90_drought_df)
+
+filename <- paste0('./../../Data/CDD/day_of_90/day_90_',Ecoregion,'.csv')
+write.csv(gpp_90_drought_df_2,filename)
+  
+
+
