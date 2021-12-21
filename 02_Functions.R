@@ -639,6 +639,7 @@ get_90_gpp_drought <- function(i){
   #ppt_id<- merge(gpp_sub,ppt_df,by=c('x','y','year','period'))
   
   ppt_id <- subset(ppt_gpp,id_value==i)
+  gpp_id <- subset(gpp_df,id_value==i)
   
   ppt_id <- aggregate(ppt~x+y+id_value+year,sum,data=ppt_id)
   
@@ -654,11 +655,13 @@ get_90_gpp_drought <- function(i){
   ppt_id  <- ppt_id %>%
     filter(ppt < quantile_25)
   
-  ppt_id  <- merge(ppt_id,gpp_df,by=c('x','y','id_value','year'))
+  ppt_id  <- merge(ppt_id,gpp_id,by=c('x','y','id_value','year'))
   
   ppt_id  <- aggregate(gpp~doy,mean,data=ppt_id)
   
   #plot(gpp~doy,growth_id_2)
+  head(ppt_id)
+  head(gpp_df)
   
   #head(growth_id_2)
   

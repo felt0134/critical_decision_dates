@@ -5,6 +5,7 @@
 
 #setup----
 plan(multisession, workers = 10)
+#options(future.globals.maxSize = 8000 * 1024^2) #https://github.com/satijalab/seurat/issues/1845
 period_list <- seq(1,15,1) #set periods
 period_list <- as.character(period_list) #easier when they are characters
 year_list <- seq(2003,2020,1) #set years
@@ -47,6 +48,9 @@ gpp_df <- merge(gpp_df,gpp_df_mean[c(1,2,4)],by=c('x','y'))
 #head(gpp_df)
 rm(gpp_df_mean)
 
+#save to temporary file
+#write.csv(gpp_df,'./../../Data/Temporary/gpp_df.csv')
+
 #estimate day of 90% of growth----
 
 
@@ -71,7 +75,7 @@ gpp_90_df <- rasterFromXYZ(gpp_90_df)
 crs(gpp_90_df) <- "+proj=longlat +datum=WGS84"
 #plot(gpp_90_df)
 filename <- paste0('./../../Data/CDD/day_of_90/day_90_',Ecoregion,'.tif')
-writeRaster(gpp_90_df,filename)
+writeRaster(gpp_90_df,filename,overwrite=TRUE)
 
 
 rm(gpp_90_df,gpp_90_list)
@@ -104,11 +108,19 @@ rm(ppt_list,test_ppt) #remove excess data
 # ppt_df_mean$id <- seq.int(nrow(ppt_df_mean))
 # head(ppt_df_mean)
 
+#save to temporary file
+#write.csv(ppt_df,'./../../Data/Temporary/ppt_df.csv')
+
 
 #find drought years for each pixel and see how day of 90% gpp changes ----
 
 #merge the two dataframes by location, year, and period within each year
 ppt_gpp <- merge(gpp_df,ppt_df,by=c('x','y','year','period'))
+#head(ppt_gpp)
+rm(ppt_df)
+
+#save to temporary file
+#write.csv(ppt_gpp,'./../../Data/Temporary/ppt_gpp.csv')
 
 #get total growing season precip
 # gpp_ppt_annual <- aggregate(ppt~x+y+id_value+year,sum,data=ppt_gpp)
@@ -123,10 +135,31 @@ ppt_gpp <- merge(gpp_df,ppt_df,by=c('x','y','year','period'))
 midpoint <- round(length(id_list)/2)
 id_list_1 <- 1:midpoint
 
+#import
+# gpp_df <- read.csv('./../../Data/Temporary/gpp_df.csv')
+# gpp_df$id_value <- as.numeric(gpp_df$id_value)
+# ppt_df <- read.csv('./../../Data/Temporary/ppt_df.csv')
+# ppt_gpp <- read.csv('./../../Data/Temporary/ppt_gpp.csv')
+# ppt_gpp$id_value <- as.numeric(ppt_gpp$id_value)
+
+#subset data
+# head(gpp_df)
+# gpp_df <- gpp_df %>% arrange(id_value) %>%
+#   filter(id_value <= midpoint)
+# 
+# ppt_gpp <- ppt_gpp %>% arrange(id_value) %>%
+#   filter(id_value <= midpoint)
+
+
+
+#subset all the large dataframes to the halves, save to file, and then read in when using them
+#see if that
+
+#options(future.globals.maxSize= 1000)
 #first half of data:
 with_progress({
-  p <- progressor(along = id_list)
-  gpp_90_drought_list <- future_lapply(id_list, function(i) {
+  p <- progressor(along = id_list_1)
+  gpp_90_drought_list <- future_lapply(id_list_1, function(i) {
     Sys.sleep(0.1)
     p(sprintf("i=%g", i))
     get_90_gpp_drought(i)
@@ -153,20 +186,16 @@ with_progress({
 gpp_90_drought_df_2 <- do.call('rbind',gpp_90_drought_list_2)
 rm(gpp_90_drought_list_2)
 
+gpp_90_drought_df_3 <- rbind(gpp_90_drought_df_2,gpp_90_drought_df)
+#head(gpp_90_drought_df_3)
 
-#now we have both, so combine them into one and save to file ------
+gpp_90_drought <- rasterFromXYZ(gpp_90_drought_df_3)
+crs(gpp_90_drought) <- "+proj=longlat +datum=WGS84"
+#plot(gpp_90_df)
+filename <- paste0('./../../Data/CDD/day_of_90/day_90_drought',Ecoregion,'.tif')
+writeRaster(gpp_90_drought,filename)
 
-# gpp_90_drought_df_2 <- merge(gpp_90_df,gpp_90_drought_df)
-# #plot(rasterFromXYZ(gpp_90_df[c(1,2,3)]))
-# 
-# filename <- paste0('./../../Data/CDD/day_of_90/day_90_',Ecoregion,'.csv')
-# write.csv(gpp_90_drought_df_2,filename)
-# 
-# 
-# 
-# 
-
-
+#plot(raster(filename))
 
 #-----look ------
 

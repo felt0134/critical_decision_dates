@@ -11,8 +11,8 @@ library(progressr)
 
 
 
-Ecoregion = 'shortgrass_steppe'
-#Ecoregion = 'northern_mixed_prairies' 
+#Ecoregion = 'shortgrass_steppe'
+Ecoregion = 'northern_mixed_prairies' 
 
 
 source('day_of_90.R')
