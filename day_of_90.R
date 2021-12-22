@@ -197,9 +197,43 @@ writeRaster(gpp_90_drought,filename)
 
 #plot(raster(filename))
 
-#-----look ------
+#-----first look ------
 
+Ecoregion = 'shortgrass_steppe'
+Ecoregion = 'northern_mixed_prairies'
 
-#read.csv('./../../Data/CDD/day_of_90/day_90_shortgrass_steppe.csv')
+#day of 90
+filename <- paste0('./../../Data/CDD/day_of_90/day_90_',Ecoregion,'.tif')
+day_90 <- raster(filename)
+plot(day_90)
 
+day_90_df <- data.frame(rasterToPoints(day_90))
+head(day_90_df)
+plot(day_90_northern_mixed_prairies~y,data=day_90_df)
+plot(day_90_shortgrass_steppe~y,data=day_90_df)
+
+#day of 90 during drought
+filename_2 <- paste0('./../../Data/CDD/day_of_90/day_90_drought',Ecoregion,'.tif')
+day_90_drought <- raster(filename_2)
+plot(day_90_drought)
+
+stack_test <- stack(day_90,day_90_drought)
+plot(stack_test)
+
+#sgs
+new <-  stack_test$day_90_droughtshortgrass_steppe - stack_test$day_90_shortgrass_steppe
+plot(new)
+new_df <- data.frame(rasterToPoints(new))
+head(new_df)
+plot(layer~y,data=new_df)
+
+#nmp
+new <- stack_test$day_90_droughtnorthern_mixed_prairies - stack_test$day_90_northern_mixed_prairies
+plot(new)
+hist(new$layer)
+mean(new$layer)
+summary(new)
+new_df <- data.frame(rasterToPoints(new))
+head(new_df)
+plot(layer~y,data=new_df)
 
