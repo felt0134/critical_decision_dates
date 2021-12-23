@@ -2,6 +2,9 @@
 library(scico)
 #https://www.data-imaginist.com/2018/scico-and-the-colour-conundrum/
 
+#julian day
+#http://uop.whoi.edu/UOPinstruments/frodo/aer/julian-day-table.html
+
 # day of 90-----
 
 #import
