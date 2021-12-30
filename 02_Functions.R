@@ -792,3 +792,54 @@ get_daymet_temp <- function(i){
   return(mean_t)
   
 }
+
+#-------------------------------------------------------------------------------
+#format and import temp raster into dataframe ------
+
+#format the temp rasters
+format_temp_df <- function(x,max_min){
+  
+  #test out what will be the 'format_temp_df' function
+  #convert to raster
+  raster_file <- raster(x)
+  
+  #extract year from the name of the raster to later add to dataframe
+  if(max_min==T){
+  year_val <- substr(names(raster_file), 6, 9)}else{
+    year_val <- substr(names(raster_file), 7, 10)}
+  
+  #convert to dataframe and add year and period columns
+  df <- data.frame(rasterToPoints(raster_file))
+  df$year <- year_val
+  colnames(df) <- c('x','y','temp','year')
+  
+  #return formatted dataframe
+  return(df)
+  
+  
+}
+
+#import the temp rasters from file, using the format function
+import_temp <- function(Ecoregion,temp,value){
+  
+  #i = 2003
+  
+  filepath_2 <-dir(paste0('./../../Data/Climate/Ecoregion/',Ecoregion,'/Temperature/',temp,'/'),
+                 full.names = T)
+  if(value==T){
+  test <- lapply(filepath_2,format_temp_df,max_min=T)}else{
+    test <- lapply(filepath_2,format_temp_df,max_min=F)}
+  
+    test <- list_to_df(test)
+  test$ecoregion <- Ecoregion
+  test$temp_var <- temp
+  
+  return(test)
+  
+  
+}
+
+#-------------------------------------------------------------------------------
+
+
+

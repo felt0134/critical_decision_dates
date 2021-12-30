@@ -334,6 +334,86 @@ print(max_sens_day_bivari)
 dev.off()
 
 
+# maximum temperature change through time ------
+
+#import SGS
+max_temp_sgs <- import_temp(Ecoregion='shortgrass_steppe',temp='tmax',value=T)
+head(max_temp_sgs)
+max_temp_sgs$year <- as.numeric(as.character(max_temp_sgs$year))
+
+temp_slope_sgs <- max_temp_sgs %>%
+  group_by(x,y) %>%
+  dplyr::do(model = lm(temp~year, data = .)) %>%
+  dplyr::mutate(coef=coef(model)[2])
+
+head(temp_slope_sgs)
+
+temp_slope_sgs <- data.frame(temp_slope_sgs[c(1,2,4)])
+
+head(temp_slope_sgs)
+
+plot(rasterFromXYZ(temp_slope_sgs))
+
+#import NMP
+max_temp_nmp <- import_temp(Ecoregion='northern_mixed_prairies',temp='tmax',value=T)
+head(max_temp_nmp)
+max_temp_nmp$year <- as.numeric(as.character(max_temp_nmp$year))
+
+temp_slope_nmp <- max_temp_nmp %>%
+  group_by(x,y) %>%
+  dplyr::do(model = lm(temp~year, data = .)) %>%
+  dplyr::mutate(coef=coef(model)[2])
+
+head(temp_slope_nmp)
+
+temp_slope_nmp <- data.frame(temp_slope_nmp[c(1,2,4)])
+
+head(temp_slope_nmp)
+
+plot(rasterFromXYZ(temp_slope_nmp))
+
+#bind them
+rbind_temp <- rbind(temp_slope_nmp,temp_slope_sgs)
+
+#combine
+temp_slope_both <- raster::merge(rasterFromXYZ(temp_slope_nmp),rasterFromXYZ(temp_slope_sgs),tolerance=0.2)
+plot(temp_slope_both)
+temp_slope_both_df <- data.frame(rasterToPoints(temp_slope_both))
+
+max_temp_trend <- ggplot(temp_slope_both_df, aes(x = x, y = y, fill = layer)) + 
+  geom_raster() + 
+  coord_equal() +
+  #geom_sf()
+  scale_fill_scico('Maximum temperature trend',palette = 'roma',direction=-1,midpoint=0) +
+  xlab('') +
+  ylab('') +
+  theme(
+    axis.text.x = element_blank(), #angle=25,hjust=1),
+    axis.text.y = element_blank(),
+    axis.title.x = element_text(color='black',size=10),
+    axis.title.y = element_text(color='black',size=10),
+    axis.ticks = element_blank(),
+    legend.key = element_blank(),
+    #legend.title = element_blank(),
+    #legend.text = element_text(size=2),
+    #legend.position = c(0.7,0.1),
+    #legend.margin =margin(r=5,l=5,t=5,b=5),
+    legend.position = c(0.30,0.3),
+    #legend.position = 'top',
+    strip.background =element_rect(fill="white"),
+    strip.text = element_text(size=10),
+    panel.background = element_rect(fill=NA),
+    panel.border = element_blank(), #make the borders clear in prep for just have two axes
+    axis.line.x = element_blank(),
+    axis.line.y = element_blank())
+
+#save to file
+png(height = 1500,width=2000,res=300,'./../../Figures/day_90_drought_growth_map.png')
+
+print(day_90_sgs_nmp_drought_map)
+
+dev.off()
+
 #gif of sensitivity -----
 
 

@@ -390,7 +390,7 @@ write.csv(gpp_90_drought_df_2,filename)
 
 
 
-# temperature improt daymet -----
+# temperature import daymet -----
 
 rangeland_npp_covariates <- readRDS('./../../Data/Herbaceous_NPP_1986_2015_V2.rds')
 head(rangeland_npp_covariates)
@@ -455,5 +455,76 @@ get_daymet_temp <- function(i){
   return(mean_t)
   
 }
+
+
+
+# look a temperature trends ------
+
+
+
+#list to store outputs in
+gpp_list <- list()
+years <- seq(2003,2020,1)
+Ecoregion = c('shortgrass_steppe')
+#run the loop
+
+
+import_temp <- function(Ecoregion,temp,max_min=T){
+  
+  #i = 2003
+  Ecoregion = 'shortgrass_steppe'
+  temp='tmean'
+  
+  filepath <-dir(paste0('./../../Data/Climate/Ecoregion/',Ecoregion,'/Temperature/',temp,'/'),
+                 full.names = T)
+  test <- lapply(filepath,format_temp_df,max_min=max_min)
+  test <- list_to_df(test)
+  test$ecoregion <- Ecoregion
+  test$temp_var <- temp
+  
+  return(test)
+  
+  
+}
+
+test_temp <- import_temp(Ecoregion='shortgrass_steppe',temp='tmean',max_min='F')
+head(test_temp)
+
+?lapply
+str(test)
+test$year <- as.numeric(as.character(test$year))
+raster_file <- raster(filepath[1])
+
+#extract year from the name of the raster to later add to dataframe
+year_val <- substr(names(raster_file), 6, 9)
+
+#convert to dataframe and add year and period columns
+df <- data.frame(rasterToPoints(raster_file))
+df$year <- year_val
+colnames(df) <- c('x','y','temp','year')
+
+
+temp_mean_df <- aggregate(temp~year,mean,data=test)
+plot(temp~year,data=temp_mean_df)
+
+temp_slope <- test %>%
+  group_by(x,y) %>%
+  dplyr::do(model = lm(temp~year, data = .)) %>%
+  dplyr::mutate(coef=coef(model)[2])
+
+head(temp_slope)
+
+temp_slope <- data.frame(temp_slope[c(1,2,4)])
+
+head(temp_slope)
+
+plot(rasterFromXYZ(temp_slope))
+
+hist(temp_slope$coef)
+median(temp_slope$coef)
+#0.010 for
+
+
+
 
 

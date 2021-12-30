@@ -2,8 +2,6 @@
 # climate models
 #https://jeffreyevans.github.io/spatialEco/reference/subsample.distance.html
 
-Ecoregion = 'shortgrass_steppe'
-
 #setup ----
 
 period_list <- seq(1,15,1) #set periods
@@ -12,7 +10,7 @@ year_list <- seq(2003,2020,1) #set years
 year_list <- as.character(year_list) #easier when they are characters
 
 
-#imports -----
+#import climate data -----
 
 #now loop through period and year
 
@@ -58,6 +56,26 @@ store_ppt_df <- list_to_df(store_ppt)
 head(store_ppt_df)
 
 
+#TEMPERATURE
+temp_data_list <- list()
+for(i in Ecoregions){
+  
+
+    #if tmax or tmin, value=T, if tmean, value=F
+   temp_data <- import_temp(Ecoregion=i,temp='tmin',value=T)
+   temp_data_list[[i]] <- temp_data
+    
+    
+  
+}
+
+temp_data_list_df <- list_to_df(temp_data_list)
+head(temp_data_list_df)
+
+unique(temp_data_list_df$ecoregion)
+
+mean_annual_temp <- aggregate(temp~x+y,mean,data=temp_data_list_df)
+
 #plot(rasterFromXYZ(annual_ppt))
 
 #basic regression exploratory: maximum sensitivity -----
@@ -77,6 +95,7 @@ max_sens_list[[i]] <- max_sens_df
 max_sens_df_2 <- list_to_df(max_sens_list)
 #head(max_sens_df_2)
 
+#PRECIPITATION
 max_sens_annual_ppt <- merge(max_sens_df_2,store_ppt_df ,by=c('x','y'))
 head(max_sens_annual_ppt)
 unique(max_sens_annual_ppt$ecoregion)
@@ -153,6 +172,41 @@ head(d_subsampled)
 max_sens_lm_subsampled <- lm(doy~ppt*ecoregion,data=d_subsampled)
 summary(max_sens_lm_subsampled)
 hist(d_subsampled$ppt)
+
+
+#TEMPERATURE 
+
+max_sens_annual_temp <- merge(max_sens_df_2,temp_data_list_df,by=c('x','y'))
+head(max_sens_annual_temp)
+unique(max_sens_annual_ppt$ecoregion)
+summary(max_sens_annual_ppt)
+
+#plots to look at the data
+ggplot(max_sens_annual_temp ,aes(temp,color=ecoregion)) +
+  geom_histogram(binwidth = 1)
+
+ggplot(max_sens_annual_temp ,aes(doy,color=ecoregion)) +
+  geom_histogram(binwidth = 1) #can see spurious (wrong) estimates at tails
+
+ggplot(max_sens_annual_temp ,aes(x=temp,y=doy,color=ecoregion)) +
+  geom_point(size=.1) +
+  geom_smooth(method='lm')
+
+#filter out extreme high and low values. Do this than look at plots again
+max_sens_annual_temp <- max_sens_annual_temp %>%
+  dplyr::filter(doy < 297) %>%
+  dplyr::filter(doy > 65)
+
+#ecoregion model
+max_sens_temp_ecoregion_lm <- lm(doy~ecoregion*temp,data=max_sens_annual_temp)
+summary(max_sens_temp_ecoregion_lm)
+
+AIC(max_sens_temp_ecoregion_lm)
+#mean temp:6116419
+#max temp: 6106428
+#min temp: 6121498
+
+
 
 #basic regression exploratory: day of 90% growth -----
 
