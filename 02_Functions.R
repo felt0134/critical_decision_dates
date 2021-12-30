@@ -26,6 +26,18 @@ get_16_day_sums_gpp <- function(x){
   
 }
 
+
+
+get_16_day_averages_temp <- function(x){
+  
+  #third column (precip) is specifically tailored to the dataset in the loop
+  fac <- (seq_len(nrow(x[c(3)]))-1) %/% 16
+  mean_temp <- data.frame(apply(x[c(3)], 2, function(v) tapply(v, fac, mean)))
+  
+  return(mean_temp)
+  
+}
+
 #-------------------------------------------------------------------------------
 # import daymet precipitation data -----
 
@@ -707,3 +719,76 @@ get_90_gpp_drought <- function(i){
 }
 
 
+#-------------------------------------------------------------------------------
+#list to dataframe function ----
+
+
+list_to_df <- function(x){
+  
+  df <- data.frame(do.call("rbind",x))
+  
+  return(df)
+  
+  
+}
+
+
+
+#-------------------------------------------------------------------------------
+# import temperature data ------
+
+
+get_daymet_temp <- function(i){
+  
+  temp_lat <- sgs.1000[i, ] %>% pull(y)
+  temp_lon <- sgs.1000[i, ] %>% pull(x)
+  
+  test <- download_daymet(
+    lat = temp_lat,
+    lon = temp_lon,
+    start = year_value,
+    end = year_value
+  ) %>% 
+    #--- just get the data part ---#
+    .$data #%>% 
+  # #--- convert to tibble (not strictly necessary) ---#
+  # as_tibble() %>% 
+  # #--- assign site_id so you know which record is for which site_id ---#
+  # mutate(site_id = temp_site) %>% 
+  # #--- get date from day of the year ---#
+  # mutate(date = as.Date(paste(year, yday, sep = "-"), "%Y-%j"))
+  
+  test<- test %>%
+    dplyr::filter(yday > 57) %>%
+    dplyr::filter(yday < 297) 
+  
+  
+  # summary(test)
+  # head(test)
+  
+  #subset to precip
+  test_tmax<-test[c(1,2,7)]
+  test_tmin<-test[c(1,2,8)]
+  
+  #get 16-day sums of precip for each year for the given pixel
+  #year_test <- unique(test$year)
+  
+  mean_tmax <- get_16_day_averages_temp(test_tmax)
+  colnames(mean_tmax) <- 'tmax_c'
+  mean_tmin <- get_16_day_averages_temp(test_tmin)
+  colnames(mean_tmin) <- 'tmin_c'
+  
+  mean_t <- cbind(mean_tmax,mean_tmin)
+  
+  mean_t$tmean_c <- (mean_t$tmax_c + mean_t$tmin_c)/2
+  
+  mean_t <- summarise_all(mean_t,mean)
+  
+  #add in year and coordinate columns
+  mean_t$year <- year_value
+  mean_t$x<-temp_lon
+  mean_t$y<-temp_lat
+  
+  return(mean_t)
+  
+}

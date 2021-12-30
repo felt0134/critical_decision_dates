@@ -252,6 +252,40 @@ head(sgs)
 sgs_raster <- rasterFromXYZ(sgs[c(1,2,4)])
 plot(sgs_raster)
 
+
+sgs.1000<-sgs[(1),]
+
+for(i in 1:nrow(sgs.1000)){
+  
+  #test.df<-mean_production[i]
+  lon.val<-sgs$x[i]
+  lat.val<-sgs$y[i]
+  
+  #?download_daymet
+  test<-download_daymet(site = "Daymet", lat = sgs.1000$y, lon = sgs.1000$x,
+                        start = 2005, end = 2006,
+                        path = tempdir(), internal = TRUE, silent = FALSE, force = FALSE,
+                        simplify = FALSE)
+  
+  #end to most recent year
+  #end = as.numeric(format(Sys.time(), "%Y")) - 2
+  
+  test<-test$data
+  
+  #Feb x to October X
+  test<- test %>%
+    dplyr::filter(yday > 57) %>%
+    dplyr::filter(yday < 297) 
+  
+  test$x<-sgs$x[i]
+  test$y<-sgs$y[i]
+  
+  # summary(test)
+  # head(test)
+  
+  #subset to precip
+  test<-test[c(1,2,4,10,11)]
+
 #increase pixel resolution
 #check math
 # 1/7 #want to pixel size to be 1/7 of original
@@ -260,6 +294,15 @@ plot(sgs_raster)
 # 1/0.145 #convert so its a factor
 sgs_raster <- raster::disaggregate(sgs_raster,fact=6.9)
 plot(sgs_raster_2)
+
+
+df <- download_daymet(site = "Oak Ridge National Laboratories",
+                      lat = 36.0133,
+                      lon = -84.2625,
+                      start = 2000,
+                      end = 2010,
+                      internal = TRUE,
+                      simplify = TRUE) # return tidy data !!
 
 
 # combining gpp and ppt ------
@@ -344,5 +387,73 @@ gpp_90_drought_df_2 <- merge(gpp_90_df,gpp_90_drought_df)
 filename <- paste0('./../../Data/CDD/day_of_90/day_90_',Ecoregion,'.csv')
 write.csv(gpp_90_drought_df_2,filename)
   
+
+
+
+# temperature improt daymet -----
+
+rangeland_npp_covariates <- readRDS('./../../Data/Herbaceous_NPP_1986_2015_V2.rds')
+head(rangeland_npp_covariates)
+mean_production<-aggregate(npp~ x + y + region,mean,data=rangeland_npp_covariates)
+sgs<-subset(mean_production,region==c('shortgrass_steppe'))
+
+
+sgs.1000<-sgs[(1),]
+year_value
+
+get_daymet_temp <- function(i){
+  
+  temp_lat <- sgs.1000[i, ] %>% pull(y)
+  temp_lon <- sgs.1000[i, ] %>% pull(x)
+  
+  test <- download_daymet(
+    lat = temp_lat,
+    lon = temp_lon,
+    start = year_value,
+    end = year_value
+  ) %>% 
+    #--- just get the data part ---#
+    .$data #%>% 
+  # #--- convert to tibble (not strictly necessary) ---#
+  # as_tibble() %>% 
+  # #--- assign site_id so you know which record is for which site_id ---#
+  # mutate(site_id = temp_site) %>% 
+  # #--- get date from day of the year ---#
+  # mutate(date = as.Date(paste(year, yday, sep = "-"), "%Y-%j"))
+  
+  test<- test %>%
+    dplyr::filter(yday > 57) %>%
+    dplyr::filter(yday < 297) 
+  
+  
+  # summary(test)
+  # head(test)
+  
+  #subset to precip
+  test_tmax<-test[c(1,2,7)]
+  test_tmin<-test[c(1,2,8)]
+  
+  #get 16-day sums of precip for each year for the given pixel
+  #year_test <- unique(test$year)
+  
+  mean_tmax <- get_16_day_averages_temp(test_tmax)
+  colnames(mean_tmax) <- 'tmax_c'
+  mean_tmin <- get_16_day_averages_temp(test_tmin)
+  colnames(mean_tmin) <- 'tmin_c'
+  
+  mean_t <- cbind(mean_tmax,mean_tmin)
+  
+  mean_t$tmean_c <- (mean_t$tmax_c + mean_t$tmin_c)/2
+  
+  mean_t <- summarise_all(mean_t,mean)
+  
+  #add in year and coordinate columns
+  mean_t$year <- year_value
+  mean_t$x<-temp_lon
+  mean_t$y<-temp_lat
+  
+  return(mean_t)
+  
+}
 
 
