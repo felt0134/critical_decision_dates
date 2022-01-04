@@ -3,8 +3,8 @@
 #clearworkspace
 rm(list=ls())
 
-pkgs <- c("ncdf4", "raster", "rgdal", "reshape2", "sp",'dplyr','data.table',
-          'rstudioapi','daymetr','ggplot2')
+pkgs <- c("raster",'tidyverse','data.table',
+          'rstudioapi') #sp and rgdal deleted 1/4/2021
 lapply(pkgs, library, character.only = TRUE) 
 
 # Set working directory to local directory

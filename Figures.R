@@ -5,6 +5,12 @@ library(scico)
 #julian day
 #http://uop.whoi.edu/UOPinstruments/frodo/aer/julian-day-table.html
 
+Albers <-
+  crs(
+    '+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96
+       +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs'
+  )
+
 # day of 90-----
 
 #import
@@ -32,34 +38,42 @@ day_90_df <- day_90_df %>%
   dplyr::filter(doy < 297) %>%
   dplyr::filter(doy > 65)
 
-max_sens_pdf <- ggplot(day_90_df,aes(x=doy,fill=Ecoregion)) +
+day_90_pdf <- ggplot(day_90_df, aes(x = doy, fill = Ecoregion)) +
   #scale_y_continuous(expand = c(0,0),limits = c(0,1.02)) +
   #scale_x_continuous(expand = c(0,0),limits = c(-1.5,0.6)) +
-  geom_density(color='black',alpha=0.5,aes(y=..scaled..)) +
-  scale_fill_manual(values=c('Northern mixed prairies'='black','Shortgrass steppe'='white')) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 1.02)) +
+  scale_x_continuous(expand = c(0, 0), limits = c(230, 281)) +
+  geom_density(color = 'black', alpha = 0.5, aes(y = ..scaled..)) +
+  scale_fill_manual(values = c(
+    'Northern mixed prairies' = 'black',
+    'Shortgrass steppe' = 'white'
+  )) +
   xlab('Day of 90% growth') +
   ylab('Probability density') +
   theme(
-    axis.text.x = element_text(color='black',size=13), #angle=25,hjust=1),
-    axis.text.y = element_text(color='black',size=13),
-    axis.title = element_text(color='black',size=16),
-    axis.ticks = element_line(color='black'),
+    axis.text.x = element_text(color = 'black', size = 13),
+    #angle=25,hjust=1),
+    axis.text.y = element_text(color = 'black', size = 13),
+    axis.title = element_text(color = 'black', size = 16),
+    axis.ticks = element_line(color = 'black'),
     legend.key = element_blank(),
     legend.title = element_blank(),
-    legend.text = element_text(size=10),
-    legend.position = c(0.70,0.25),
+    legend.text = element_text(size = 10),
+    legend.position = c(0.70, 0.25),
     #legend.position = 'none',
-    strip.background =element_rect(fill="white"),
-    strip.text = element_text(size=15),
-    panel.background = element_rect(fill=NA),
-    panel.border = element_blank(), #make the borders clear in prep for just have two axes
+    strip.background = element_rect(fill = "white"),
+    strip.text = element_text(size = 15),
+    panel.background = element_rect(fill = NA),
+    panel.border = element_blank(),
+    #make the borders clear in prep for just have two axes
     axis.line.x = element_line(colour = "black"),
-    axis.line.y = element_line(colour = "black"))
+    axis.line.y = element_line(colour = "black")
+  )
 
 #save to file
 png(height = 1700,width=2000,res=300,'./../../Figures/day90_distributions.png')
 
-print(max_sens_pdf)
+print(day_90_pdf)
 
 dev.off()
 
@@ -68,7 +82,8 @@ dev.off()
 # plot(nmp_look)
 
 #combine
-day_90_sgs_nmp <- raster::merge(day_90_sgs,day_90_nmp,tolerance=1)
+day_90_sgs_nmp <- raster::merge(day_90_sgs,day_90_nmp,tolerance=0.2)
+crs(day_90_sgs_nmp) <- Albers
 plot(day_90_sgs_nmp)
 day_90_sgs_nmp <- data.frame(rasterToPoints(day_90_sgs_nmp))
 
@@ -77,11 +92,23 @@ day_90_sgs_nmp <- day_90_sgs_nmp %>%
   dplyr::filter(layer < 297) %>%
   dplyr::filter(layer > 65)
 
-day_90_sgs_nmp_map <- ggplot(day_90_sgs_nmp, aes(x = x, y = y, fill = layer)) + 
+str(day_90_sgs_nmp)
+head(day_90_sgs_nmp)
+
+day_90_sgs_nmp_2 <- day_90_sgs_nmp %>%
+  group_by(x,y) %>%
+  summarise(
+  layer2 = paste((layer-16), min(layer), sep = "-"))
+
+head(day_90_sgs_nmp_2)
+day_90_sgs_nmp_2$layer2 <- as.numeric(day_90_sgs_nmp_2$layer2)
+
+day_90_sgs_nmp_map <- ggplot(data.frame(day_90_sgs_nmp), aes(x = x, y = y, fill = layer)) + 
   geom_raster() + 
   coord_equal() +
   #geom_sf()
   scale_fill_scico('Day of 90% growth',palette = 'batlow',direction=-1) +
+  #geom_polygon(minn, aes(x=long, y=lat),fill=NA,color="black", size=.5)
   xlab('') +
   ylab('') +
   theme(
@@ -112,15 +139,26 @@ print(day_90_sgs_nmp_map)
 
 dev.off()
 
+#test to add state lines
+states_map <- map_data("state")
+minn <- subset(states_map,region=='colorado')
+ggplot(minn, aes(x=long, y=lat, group=group)) +
+  geom_polygon(fill=NA,color="black", size=.5) +
+  coord_map() +
+  geom_raster(day_90_sgs_nmp, aes(x = x, y = y, fill = layer,group=group)) 
+
+
 #impact of drought on the 90% day of growth
 
 #import
 
 #sgs
-day_90_drought_sgs <- raster('./../../Data/CDD/day_of_90/day_90_droughtshortgrass_steppe.tif')
+day_90_drought_sgs <-
+  raster('./../../Data/CDD/day_of_90/day_90_droughtshortgrass_steppe.tif')
 plot(day_90_drought_sgs)
-day_90_drought_sgs <- stack(day_90_drought_sgs,day_90_sgs)
-day_90_drought_sgs_2 <- day_90_drought_sgs$day_90_droughtshortgrass_steppe - 
+day_90_drought_sgs <- stack(day_90_drought_sgs, day_90_sgs)
+day_90_drought_sgs_2 <-
+  day_90_drought_sgs$day_90_droughtshortgrass_steppe -
   day_90_drought_sgs$day_90_shortgrass_steppe
 plot(day_90_drought_sgs_2)
 summary(day_90_drought_sgs_2)
@@ -128,56 +166,126 @@ summary(day_90_drought_sgs_2)
 plot(layer~y,data=rasterToPoints(day_90_drought_sgs_2))
 
 #nmp
-day_90_drought_nmp <- raster('./../../Data/CDD/day_of_90/day_90_droughtnorthern_mixed_prairies.tif')
+day_90_drought_nmp <-
+  raster('./../../Data/CDD/day_of_90/day_90_droughtnorthern_mixed_prairies.tif')
 plot(day_90_drought_nmp)
-day_90_drought_nmp <- stack(day_90_drought_nmp,day_90_nmp)
+day_90_drought_nmp <- stack(day_90_drought_nmp, day_90_nmp)
 plot(day_90_drought_nmp)
-day_90_drought_nmp_2 <- day_90_drought_nmp$day_90_droughtnorthern_mixed_prairies - 
+day_90_drought_nmp_2 <-
+  day_90_drought_nmp$day_90_droughtnorthern_mixed_prairies -
   day_90_drought_nmp$day_90_northern_mixed_prairies
 plot(day_90_drought_nmp_2)
 summary(day_90_drought_nmp_2)
 hist(day_90_drought_nmp_2$layer)
 
 #combine
-day_90_drought <- raster::merge(day_90_drought_nmp_2,day_90_drought_sgs_2,tolerance=0.25)
+day_90_drought <-
+  raster::merge(day_90_drought_nmp_2, day_90_drought_sgs_2, tolerance = 0.20)
+crs(day_90_drought) <- Albers
 plot(day_90_drought)
 summary(day_90_drought)
 day_90_drought_df <- data.frame(rasterToPoints(day_90_drought))
 str(day_90_drought_df)
 
-#library(RColorBrewer)
-#?scale_fill_scico
-day_90_sgs_nmp_drought_map <- ggplot(day_90_drought_df, aes(x = x, y = y, fill = layer)) + 
-  geom_raster() + 
+day_90_sgs_nmp_drought_map <-
+  ggplot(day_90_drought_df, aes(x = x, y = y, fill = layer)) +
+  geom_raster() +
   coord_equal() +
   #geom_sf()
-  scale_fill_scico('Drought impact to day90',palette = 'vik',direction=1,midpoint=0) +
+  scale_fill_scico(
+    'Drought impact to day \n of 90% growth (days)',
+    palette = 'vik',
+    direction = -1,
+    midpoint = 0) +
   xlab('') +
   ylab('') +
   theme(
-    axis.text.x = element_blank(), #angle=25,hjust=1),
+    axis.text.x = element_blank(),
+    #angle=25,hjust=1),
     axis.text.y = element_blank(),
-    axis.title.x = element_text(color='black',size=10),
-    axis.title.y = element_text(color='black',size=10),
+    axis.title.x = element_text(color = 'black', size = 10),
+    axis.title.y = element_text(color = 'black', size = 10),
     axis.ticks = element_blank(),
     legend.key = element_blank(),
     #legend.title = element_blank(),
     #legend.text = element_text(size=2),
     #legend.position = c(0.7,0.1),
     #legend.margin =margin(r=5,l=5,t=5,b=5),
-    legend.position = c(0.30,0.3),
+    legend.position = c(0.30, 0.3),
     #legend.position = 'top',
-    strip.background =element_rect(fill="white"),
-    strip.text = element_text(size=10),
-    panel.background = element_rect(fill=NA),
-    panel.border = element_blank(), #make the borders clear in prep for just have two axes
+    strip.background = element_rect(fill = "white"),
+    strip.text = element_text(size = 10),
+    panel.background = element_rect(fill = NA),
+    panel.border = element_blank(),
+    #make the borders clear in prep for just have two axes
     axis.line.x = element_blank(),
-    axis.line.y = element_blank())
+    axis.line.y = element_blank()
+  )
 
 #save to file
-png(height = 1500,width=2000,res=300,'./../../Figures/day_90_drought_growth_map.png')
+png(
+  height = 1500,
+  width = 2000,
+  res = 300,
+  './../../Figures/day_90_drought_growth_map.png'
+)
 
 print(day_90_sgs_nmp_drought_map)
+
+dev.off()
+
+#PDF of drought impact to 90% growth
+
+#nmp
+day_90_drought_nmp_2_df <- data.frame(rasterToPoints(day_90_drought_nmp_2))
+day_90_drought_nmp_2_df$region <- 'Northern mixed prairies'
+
+#sgs
+day_90_drought_sgs_2_df <- data.frame(rasterToPoints(day_90_drought_sgs_2))
+day_90_drought_sgs_2_df$region <- 'Shortgrass steppe'
+
+#join
+day_90_drought_nmp_sgs_2_df <- rbind(day_90_drought_nmp_2_df,day_90_drought_sgs_2_df)
+head(day_90_drought_nmp_sgs_2_df)
+
+#plot it
+drought_day90_pdf <- ggplot(day_90_drought_nmp_sgs_2_df, aes(x = layer, fill = region)) +
+  scale_y_continuous(expand = c(0,0)) +
+  #scale_x_continuous(expand = c(0,0),limits = c(-1.5,0.6)) +
+  #scale_y_continuous(expand = c(0, 0), limits = c(0, 1.02)) +
+  #scale_x_continuous(expand = c(0, 0), limits = c(230, 281)) +
+  geom_histogram(color='black',binwidth = 1) +
+  #geom_density(color = 'black', alpha = 0.5, aes(y = ..scaled..)) +
+  scale_fill_manual(values = c(
+    'Northern mixed prairies' = 'grey70',
+    'Shortgrass steppe' = 'white'
+  )) +
+  xlab('Drought impact to day of 90% growth') +
+  ylab('Count') +
+  theme(
+    axis.text.x = element_text(color = 'black', size = 13),
+    #angle=25,hjust=1),
+    axis.text.y = element_text(color = 'black', size = 13),
+    axis.title = element_text(color = 'black', size = 16),
+    axis.ticks = element_line(color = 'black'),
+    legend.key = element_blank(),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 10),
+    legend.position = c(0.77, 0.55),
+    #legend.position = 'none',
+    strip.background = element_rect(fill = "white"),
+    strip.text = element_text(size = 15),
+    panel.background = element_rect(fill = NA),
+    panel.border = element_blank(),
+    #make the borders clear in prep for just have two axes
+    axis.line.x = element_line(colour = "black"),
+    axis.line.y = element_line(colour = "black")
+  )
+
+#save to file
+png(height = 1700,width=2000,res=300,'./../../Figures/day90_drought_distributions.png')
+
+print(drought_day90_pdf)
 
 dev.off()
 
@@ -216,7 +324,7 @@ max_sens_doy <- max_sens_doy %>%
   dplyr::filter(doy > 65)
 
 max_sens_pdf <- ggplot(max_sens_doy,aes(x=doy,fill=Ecoregion)) +
-  #scale_y_continuous(expand = c(0,0),limits = c(0,1.02)) +
+  scale_y_continuous(expand = c(0,0),limits = c(0,1.02)) +
   #scale_x_continuous(expand = c(0,0),limits = c(-1.5,0.6)) +
   geom_density(color='black',alpha=0.5,aes(y=..scaled..)) +
   scale_fill_manual(values=c('Northern mixed prairies'='black','Shortgrass steppe'='white')) +
@@ -253,7 +361,8 @@ dev.off()
 #plot(rasterFromXYZ(max_sens_doy))
 
 #bind rasters
-max_sens_sgs_nmp <- raster::merge(max_sens_doy_sgs,max_sens_doy_nmp,tolerance=1)
+max_sens_sgs_nmp <- raster::merge(max_sens_doy_sgs,max_sens_doy_nmp,tolerance=0.2)
+crs(max_sens_sgs_nmp) <- Albers
 plot(max_sens_sgs_nmp)
 max_sens_sgs_nmp <- data.frame(rasterToPoints(max_sens_sgs_nmp))
 
@@ -339,24 +448,29 @@ dev.off()
 #import SGS
 max_temp_sgs <- import_temp(Ecoregion='shortgrass_steppe',temp='tmax',value=T)
 head(max_temp_sgs)
+
+#make year numeric
 max_temp_sgs$year <- as.numeric(as.character(max_temp_sgs$year))
 
+#get per-pixel slope (change in max temp/year)
 temp_slope_sgs <- max_temp_sgs %>%
   group_by(x,y) %>%
   dplyr::do(model = lm(temp~year, data = .)) %>%
   dplyr::mutate(coef=coef(model)[2])
 
-head(temp_slope_sgs)
-
 temp_slope_sgs <- data.frame(temp_slope_sgs[c(1,2,4)])
+summary(temp_slope_sgs)
+#Median : 0.04397  
 
+#take a look
 head(temp_slope_sgs)
-
 plot(rasterFromXYZ(temp_slope_sgs))
 
 #import NMP
 max_temp_nmp <- import_temp(Ecoregion='northern_mixed_prairies',temp='tmax',value=T)
 head(max_temp_nmp)
+
+#make year numeric
 max_temp_nmp$year <- as.numeric(as.character(max_temp_nmp$year))
 
 temp_slope_nmp <- max_temp_nmp %>%
@@ -364,27 +478,36 @@ temp_slope_nmp <- max_temp_nmp %>%
   dplyr::do(model = lm(temp~year, data = .)) %>%
   dplyr::mutate(coef=coef(model)[2])
 
-head(temp_slope_nmp)
-
 temp_slope_nmp <- data.frame(temp_slope_nmp[c(1,2,4)])
 
-head(temp_slope_nmp)
+summary(temp_slope_nmp)
+# Median :-0.001681
 
+#take a look
+head(temp_slope_nmp)
 plot(rasterFromXYZ(temp_slope_nmp))
+
 
 #bind them
 rbind_temp <- rbind(temp_slope_nmp,temp_slope_sgs)
 
-#combine
+#combine for mapping
 temp_slope_both <- raster::merge(rasterFromXYZ(temp_slope_nmp),rasterFromXYZ(temp_slope_sgs),tolerance=0.2)
+crs(temp_slope_both) <- Albers
 plot(temp_slope_both)
 temp_slope_both_df <- data.frame(rasterToPoints(temp_slope_both))
+# library(mapproj)
+# library(ggalt)
 
-max_temp_trend <- ggplot(temp_slope_both_df, aes(x = x, y = y, fill = layer)) + 
-  geom_raster() + 
+max_temp_trend <- ggplot() + 
+  geom_raster(data=temp_slope_both_df, aes(x = x, y = y, fill = layer)) + 
+  # coord_cartesian()
+  # coord_map("albers",lat0=32.5343, lat=142.0095) +
+  # ggalt::coord_proj() +
   coord_equal() +
   #geom_sf()
-  scale_fill_scico('Maximum temperature trend',palette = 'roma',direction=-1,midpoint=0) +
+  scale_fill_scico('Change in average maximum \n temperature (degrees/year)',
+                   palette = 'roma',direction=-1,midpoint=0) +
   xlab('') +
   ylab('') +
   theme(
@@ -398,7 +521,7 @@ max_temp_trend <- ggplot(temp_slope_both_df, aes(x = x, y = y, fill = layer)) +
     #legend.text = element_text(size=2),
     #legend.position = c(0.7,0.1),
     #legend.margin =margin(r=5,l=5,t=5,b=5),
-    legend.position = c(0.30,0.3),
+    legend.position = c(0.25,0.3),
     #legend.position = 'top',
     strip.background =element_rect(fill="white"),
     strip.text = element_text(size=10),
@@ -408,9 +531,9 @@ max_temp_trend <- ggplot(temp_slope_both_df, aes(x = x, y = y, fill = layer)) +
     axis.line.y = element_blank())
 
 #save to file
-png(height = 1500,width=2000,res=300,'./../../Figures/day_90_drought_growth_map.png')
+png(height = 1500,width=2000,res=300,'./../../Figures/maximum_temperature_trend.png')
 
-print(day_90_sgs_nmp_drought_map)
+print(max_temp_trend)
 
 dev.off()
 

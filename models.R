@@ -4,50 +4,60 @@
 
 #setup ----
 
-period_list <- seq(1,15,1) #set periods
-period_list <- as.character(period_list) #easier when they are characters
-year_list <- seq(2003,2020,1) #set years
-year_list <- as.character(year_list) #easier when they are characters
+period_list <- seq(1, 15, 1) #set periods
+period_list <-
+  as.character(period_list) #easier when they are characters
+year_list <- seq(2003, 2020, 1) #set years
+year_list <-
+  as.character(year_list) #easier when they are characters
 
 
 #import climate data -----
 
 #now loop through period and year
 
-Ecoregions <- c('shortgrass_steppe','northern_mixed_prairies')
+Ecoregions <- c('shortgrass_steppe', 'northern_mixed_prairies')
 
+#PRECIPITATION
 store_ppt <- list()
-
-for(j in Ecoregions){
-
-#create list to store values
-ppt_list <- list()
-
-#loop through each year and period
-for(i in period_list){
+for (j in Ecoregions) {
+  #create list to store values
+  ppt_list <- list()
   
-  filepath <-dir(paste0('./../../Data/Climate/Ecoregion/',j,'/Precipitation/Period/',i,'/'),full.names = T)
-  test_ppt <- lapply(filepath,format_ppt_df)
-  test_ppt <- data.frame(do.call('rbind',test_ppt))
-  ppt_list[[i]] <- test_ppt
+  #loop through each year and period
+  for (i in period_list) {
+    filepath <-
+      dir(
+        paste0(
+          './../../Data/Climate/Ecoregion/',
+          j,
+          '/Precipitation/Period/',
+          i,
+          '/'
+        ),
+        full.names = T
+      )
+    test_ppt <- lapply(filepath, format_ppt_df)
+    test_ppt <- data.frame(do.call('rbind', test_ppt))
+    ppt_list[[i]] <- test_ppt
+    
+  }
   
-}
-
-#convert to dataframe
-ppt_df <- do.call('rbind',ppt_list)
-rm(ppt_list,test_ppt)
-
-
-#head(ppt_df)
-
-
-# for later use: get average total growing season PPT for each pixel
-annual_ppt <- aggregate(ppt~x+y+year,sum,data=ppt_df)
-annual_ppt <- aggregate(ppt~x+y,mean,data=annual_ppt)
-annual_ppt$ecoregion <- j
-
-store_ppt[[j]] <- annual_ppt
-
+  #convert to dataframe
+  ppt_df <- do.call('rbind', ppt_list)
+  rm(ppt_list, test_ppt)
+  
+  
+  #head(ppt_df)
+  
+  
+  # for later use: get average total growing season PPT for each pixel
+  annual_ppt <- aggregate(ppt ~ x + y + year, sum, data = ppt_df)
+  annual_ppt <- aggregate(ppt ~ x + y, mean, data = annual_ppt)
+  annual_ppt$ecoregion <- j
+  
+  store_ppt[[j]] <- annual_ppt
+  
 }
 
 #head(store_ppt[1])
@@ -58,14 +68,14 @@ head(store_ppt_df)
 
 #TEMPERATURE
 temp_data_list <- list()
-for(i in Ecoregions){
+for (i in Ecoregions) {
+  #if tmax or tmin, value=T, if tmean, value=F
+  temp_data <- import_temp(Ecoregion = i,
+                           temp = 'tmax',
+                           value = T)
+  temp_data_list[[i]] <- temp_data
   
-
-    #if tmax or tmin, value=T, if tmean, value=F
-   temp_data <- import_temp(Ecoregion=i,temp='tmin',value=T)
-   temp_data_list[[i]] <- temp_data
-    
-    
+  
   
 }
 
@@ -74,7 +84,7 @@ head(temp_data_list_df)
 
 unique(temp_data_list_df$ecoregion)
 
-mean_annual_temp <- aggregate(temp~x+y,mean,data=temp_data_list_df)
+mean_annual_temp <- aggregate(temp ~ x + y, mean, data = temp_data_list_df)
 
 #plot(rasterFromXYZ(annual_ppt))
 
@@ -128,11 +138,13 @@ max_sens_intercept_lm <- lm(doy~1,data=max_sens_annual_ppt)
 summary(max_sens_intercept_lm)
 
 # with ecoregion interaction
-max_sens_ppt_ecoregion_lm <- lm(doy~ppt + ppt*ecoregion,data=max_sens_annual_ppt)
+max_sens_ppt_ecoregion_lm <- lm(doy~ppt*ecoregion,data=max_sens_annual_ppt)
 summary(max_sens_ppt_ecoregion_lm)
+AIC(max_sens_ppt_ecoregion_lm)
 
 plot(doy~ppt,data=max_sens_annual_ppt)
 AIC(max_sens_ppt_lm,max_sens_intercept_lm,max_sens_ppt_ecoregion_lm)
+#335469.2
 
 #look at residuals
 max_sens_annual_ppt$resid <- resid(max_sens_ppt_ecoregion_lm)
@@ -189,7 +201,7 @@ ggplot(max_sens_annual_temp ,aes(doy,color=ecoregion)) +
   geom_histogram(binwidth = 1) #can see spurious (wrong) estimates at tails
 
 ggplot(max_sens_annual_temp ,aes(x=temp,y=doy,color=ecoregion)) +
-  geom_point(size=.1) +
+  geom_point(size=.1,alpha=0.1) +
   geom_smooth(method='lm')
 
 #filter out extreme high and low values. Do this than look at plots again
@@ -198,13 +210,16 @@ max_sens_annual_temp <- max_sens_annual_temp %>%
   dplyr::filter(doy > 65)
 
 #ecoregion model
-max_sens_temp_ecoregion_lm <- lm(doy~ecoregion*temp,data=max_sens_annual_temp)
+max_sens_temp_ecoregion_lm <- lm(doy~temp*ecoregion,data=max_sens_annual_temp)
 summary(max_sens_temp_ecoregion_lm)
 
 AIC(max_sens_temp_ecoregion_lm)
 #mean temp:6116419
 #max temp: 6106428
 #min temp: 6121498
+
+9528110 - 335469.2
+
 
 
 

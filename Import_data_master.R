@@ -75,10 +75,10 @@ region_name = 'northern_mixed_prairies'
 
 #set year
 
-#2003-2020
-#year_value = '2004'
+#2003-2020 is length of GPP data
+#lengthen data temp data so it starts in 1990 to get a full 30 years.
 
-years <- seq(2019,2020,1)
+years <- seq(2001,2002,1)
 
 for(j in years){
 
